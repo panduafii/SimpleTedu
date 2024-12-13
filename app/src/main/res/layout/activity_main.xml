@@ -1,27 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/etQuestion"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="58dp"
-        android:hint="Enter your question" />
-
-    <Button
-        android:id="@+id/btnSubmit"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Submit" />
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/txtResponse"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Response will appear here" />
+        <EditText
+            android:id="@+id/etQuestion"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:hint="Enter your question" />
 
-</LinearLayout>
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Submit" />
+
+        <TextView
+            android:id="@+id/txtBalasan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response balasan will appear here\n===============\n" />
+
+        <TextView
+            android:id="@+id/txtRangkuman"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response rangkuman will appear here\n===============\n" />
+
+        <TextView
+            android:id="@+id/txtKecemasan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response kecemasan will appear here\n===============\n" />
+
+        <TextView
+            android:id="@+id/txtDepresi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response depresi will appear here\n===============\n" />
+
+        <TextView
+            android:id="@+id/txtStress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response stress will appear here\n===============\n" />
+
+        <TextView
+            android:id="@+id/txtPoin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Response poin will appear here\n===============\n" />
+
+    </LinearLayout>
+</ScrollView>

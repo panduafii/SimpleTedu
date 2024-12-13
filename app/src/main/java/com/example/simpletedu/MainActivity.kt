@@ -8,53 +8,71 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.Call
-import okhttp3.Callback
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
-class  MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
     private val client = OkHttpClient()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
-        val etQuestion=findViewById<EditText>(R.id.etQuestion)
-        val btnSubmit=findViewById<Button> (R.id.btnSubmit)
-        val txtResponse=findViewById<TextView> (R. id. txtResponse)
-
+        val etQuestion = findViewById<EditText>(R.id.etQuestion)
+        val btnSubmit = findViewById<Button>(R.id.btnSubmit)
+        val txtBalasan = findViewById<TextView>(R.id.txtBalasan)
+        val txtRangkuman = findViewById<TextView>(R.id.txtRangkuman)
+        val txtKecemasan = findViewById<TextView>(R.id.txtKecemasan)
+        val txtDepresi = findViewById<TextView>(R.id.txtDepresi)
+        val txtStress = findViewById<TextView>(R.id.txtStress)
+        val txtPoin = findViewById<TextView>(R.id.txtPoin)
 
         btnSubmit.setOnClickListener {
             val question = etQuestion.text.toString()
-            Toast.makeText(this, question, Toast.LENGTH_SHORT).show()
-            getResponse(question) { response ->
-                runOnUiThread{
-                        txtResponse.text = response
-                }
+
+            if (question.isBlank()) {
+                Toast.makeText(this, "Input tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            Toast.makeText(this, "Mengirim pertanyaan...", Toast.LENGTH_SHORT).show()
+
+            getBalasan(question) { response ->
+                runOnUiThread { txtBalasan.text = response }
+            }
+            getRangkuman(question) { response ->
+                runOnUiThread { txtRangkuman.text = response }
+            }
+            getKecemasan(question) { response ->
+                runOnUiThread { txtKecemasan.text = response }
+            }
+            getDepresi(question) { response ->
+                runOnUiThread { txtDepresi.text = response }
+            }
+            getStress(question) { response ->
+                runOnUiThread { txtStress.text = response }
+            }
+            getPoin(question) { response ->
+                runOnUiThread { txtPoin.text = response }
             }
         }
     }
-    fun getResponse(question: String, callback: (String) -> Unit) {
-        val apiKey = "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"
-        val url = "https://api.groq.com/openai/v1/chat/completions"
 
+    fun getResponse(apiKey: String, url: String, roleContent: String, question: String, callback: (String) -> Unit) {
         val requestBody = """
         {
             "messages": [
                 {
                     "role": "system",
-                    "content": "kamu adalah asisten bernama tedu, tanggapi semua yang orang ceritakan dan katakan kepadamu. beri mereka solusi"
+                    "content": "$roleContent"
                 },
                 {
-                  "role": "user",
-                  "content": "$question"
+                    "role": "user",
+                    "content": "$question"
                 }
             ],
             "model": "llama3-8b-8192",
@@ -74,43 +92,115 @@ class  MainActivity : AppCompatActivity() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("error", "API Failed", e)
-                callback("API request failed: ${e.localizedMessage}")
+                Log.e("API Error", "API request failed", e)
+                runOnUiThread {
+                    callback("API request failed: ${e.localizedMessage}")
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body?.string()
-                if (body != null) {
-                    // Parsing streaming data
+                Log.d("API Raw Response", "Body: $body")
+
+                if (body.isNullOrEmpty()) {
+                    runOnUiThread {
+                        callback("Empty response from server")
+                    }
+                    return
+                }
+
+                try {
+                    // Split respons streaming berdasarkan baris
                     val lines = body.split("\n")
                     val fullContent = StringBuilder()
 
-                    lines.forEach { line ->
+                    for (line in lines) {
+                        Log.d("Streaming Line", "Processing line: $line")
+
                         if (line.startsWith("data: ")) {
-                            val json = line.removePrefix("data: ").trim()
-                            if (json != "[DONE]") {
-                                try {
-                                    val jsonObject = JSONObject(json)
-                                    val choices = jsonObject.getJSONArray("choices")
-                                    val content = choices.getJSONObject(0)
-                                        .getJSONObject("delta")
-                                        .optString("content", "")
+                            val jsonPart = line.removePrefix("data: ").trim()
+
+                            if (jsonPart == "[DONE]") {
+                                continue
+                            }
+
+                            try {
+                                val jsonObject = JSONObject(jsonPart)
+                                val choices = jsonObject.optJSONArray("choices") ?: continue
+
+                                for (i in 0 until choices.length()) {
+                                    val delta = choices.getJSONObject(i).getJSONObject("delta")
+                                    val content = delta.optString("content", "")
                                     fullContent.append(content)
-                                } catch (e: Exception) {
-                                    Log.e("ParseError", "Error parsing JSON: ${e.message}")
                                 }
+                            } catch (e: Exception) {
+                                Log.e("JSON Parse Error", "Error parsing JSON part: ${e.message}")
                             }
                         }
                     }
 
-                    // Callback dengan teks lengkap
-                    callback(fullContent.toString())
-                } else {
-                    callback("Empty response")
+                    runOnUiThread {
+                        if (fullContent.isEmpty()) {
+                            callback("No valid content found in server response.")
+                        } else {
+                            callback(fullContent.toString())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("JSON Parse Error", "Error parsing JSON: ${e.message}")
+                    runOnUiThread {
+                        callback("Error parsing server response: ${e.message}")
+                    }
                 }
             }
         })
     }
 
+    // Function to get Balasan (Response)
+    private fun getBalasan(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Kamu adalah asisten yang memberikan tanggapan terhadap input pengguna. awali jawaban dengan '1'"
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
 
+    // Function to get Rangkuman (Summary)
+    private fun getRangkuman(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Kamu adalah asisten yang merangkum input pengguna menjadi poin-poin penting. awali jawaban dengan '2'"
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
+
+    // Function to get Kecemasan (Anxiety Evaluation)
+    private fun getKecemasan(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Evaluasi tingkat kecemasan dari input pengguna berdasarkan konteks yang diberikan."
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
+
+    // Function to get Depresi (Depression Evaluation)
+    private fun getDepresi(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Evaluasi tingkat depresi dari input pengguna berdasarkan konteks yang diberikan."
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
+
+    // Function to get Stress (Stress Evaluation)
+    private fun getStress(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Evaluasi tingkat stres dari input pengguna berdasarkan konteks yang diberikan."
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
+
+    // Function to get Poin (Points Evaluation)
+    private fun getPoin(question: String, callback: (String) -> Unit) {
+        val apiKey = "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"
+        val url = "https://api.groq.com/openai/v1/chat/completions"
+        val roleContent = "Hitung poin atau skor berdasarkan masukan pengguna dan konteks yang diberikan."
+        getResponse(apiKey, url, roleContent, question, callback)
+    }
 }
